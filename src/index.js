@@ -1,61 +1,74 @@
+import './styles.css';
 import SlimSelect from 'slim-select';
+import 'slim-select/dist/slimselect.css';
+import { Notify } from 'notiflix/build/notiflix-notify-aio';
 
 
-import { fetchBreeds } from "./cat-api";
-
-//  https://api.thecatapi.com/v1/breeds
-// https://api.thecatapi.com/v1/images/search?api_key=live_i3NAY7BaD2LktPyUjeSgJbe2AKuKqeSp9qAobJvv2uUxhKTD55QwmlyrWz8VQ08z
-
-//  https://api.thecatapi.com/v1/breeds?api_key=live_i3NAY7BaD2LktPyUjeSgJbe2AKuKqeSp9qAobJvv2uUxhKTD55QwmlyrWz8VQ08z
 
 
-const search = document.querySelector('.breed-select')
+import { fetchBreeds, fetchCatByBreed } from "./cat-api";
 
-new SlimSelect({
-  select: '.breed-select'
-})
 
-// search.addEventListener('change', onChangeBreedsCet);
 
-// function onChangeBreedsCet(e) {
-//     console.log(e.currentTarget.value)
-    
-// }
-let storedBreeds = []
+
+const search = document.querySelector('.breed-select');
+const containerCatInfo = document.querySelector('.cat-info');
+const loader = document.querySelector('.loader');
+const error = document.querySelector('.error');
+
+loader.classList.replace('loader', 'is-hidden');
+error.classList.add('is-hidden');
+containerCatInfo.classList.add('is-hidden');
+
+let storedBreeds = [];
+
+
+
 
 fetchBreeds().then(data => {
-    data = data.filter(img => img.image?.url != null)
-    storedBreeds = data;
     
-     for (let i = 0; i < storedBreeds.length; i++) {
-    const breed = storedBreeds[i];
-    let option = document.createElement('option');
-     
-     //skip any breeds that don't have an image
-     if(!breed.image)continue
-     
-    //use the current array index
-    option.value = i;
-    option.innerHTML = `${breed.name}`;
-document.getElementById('breed_selector').appendChild(option);
-    
-    }
-   //show the first breed by default
-   showBreedImage(0)
+    data.forEach(element => {
+      storedBreeds.push({text: element.name, value: element.id});
+  });
 
- 
-}).catch(err => console.log(err));
+    new SlimSelect({
+      select: search,
+      data: storedBreeds  
+    })
+}).catch(onFetchError);
+
+search.addEventListener('change', onSelectBreed);
+
+function onSelectBreed(event) {
+    loader.classList.replace('is-hidden', 'loader');
+    search.classList.add('is-hidden');
+    containerCatInfo.classList.add('is-hidden');
+
+    const breedId = event.currentTarget.value;
+    fetchCatByBreed(breedId)
+    .then(data => {
+        loader.classList.replace('loader', 'is-hidden');
+        search.classList.remove('is-hidden');
+        const { url, breeds } = data[0];
+        
+        containerCatInfo.innerHTML = `<div class="box-img"><img src="${url}" alt="${breeds[0].name}" width="400"/></div><div class="box"><h1>${breeds[0].name}</h1><p>${breeds[0].description}</p><p><b>Temperament:</b> ${breeds[0].temperament}</p></div>`
+        containerCatInfo.classList.remove('is-hidden');
+    })
+    .catch(onFetchError);
+};
 
 
 
 
-function showBreedImage(index)
-{ 
-  document.getElementById("breed_image").src= storedBreeds[index].image.url;
-  
-  document.getElementById("breed_json").textContent= storedBreeds[index].temperament
-  
-  
-  document.getElementById("wiki_link").href= storedBreeds[index].wikipedia_url
-  document.getElementById("wiki_link").innerHTML= storedBreeds[index].wikipedia_url
-}
+
+function onFetchError(error) {
+  search.classList.remove('is-hidden');
+  loader.classList.replace('loader', 'is-hidden');
+
+  Notify.failure('Oops! Something went wrong! Try reloading the page or select another cat breed!', {
+      position: 'center-center',
+      timeout: 5000,
+      width: '400px',
+      fontSize: '24px'
+  });
+};
